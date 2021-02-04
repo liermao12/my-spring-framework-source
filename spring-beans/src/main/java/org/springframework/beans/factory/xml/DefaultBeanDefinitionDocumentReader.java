@@ -92,7 +92,9 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 */
 	@Override
 	public void registerBeanDefinitions(Document doc, XmlReaderContext readerContext) {
+		//将 上下文context 保存到reader的字段中。
 		this.readerContext = readerContext;
+		//doc.getDocumentElement() => 拿出 document代表的xml的顶层标签 =>  <beans> ... </beans>
 		doRegisterBeanDefinitions(doc.getDocumentElement());
 	}
 
@@ -126,15 +128,25 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
 		BeanDefinitionParserDelegate parent = this.delegate;
+
+		//方法返回一个beans标签 解析器对象。
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
+		//一般情况下，条件成立。
 		if (this.delegate.isDefaultNamespace(root)) {
+			//获取beans标签 属性 profile:  dev/prod/pre..
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
+			//条件成立：说明beans标签上有profile属性 有值。
 			if (StringUtils.hasText(profileSpec)) {
+				//将profile按照 ,; 拆分字符串数组
 				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
 						profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);
+
+
 				// We cannot use Profiles.of(...) since profile expressions are not supported
 				// in XML config. See SPR-12458 for details.
+				//environment.acceptsProfiles(String[] args)：条件成立，说明beans标签可以继续解析成bd
+				//条件成立：说明该beans标签不再继续解析。
 				if (!getReaderContext().getEnvironment().acceptsProfiles(specifiedProfiles)) {
 					if (logger.isDebugEnabled()) {
 						logger.debug("Skipped XML bean definition file due to specified profiles [" + profileSpec +
@@ -145,13 +157,20 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
+		//这里是留给子类扩展的地方。
 		preProcessXml(root);
+
 		parseBeanDefinitions(root, this.delegate);
+
+		//这里是留给子类扩展的地方。
 		postProcessXml(root);
 
 		this.delegate = parent;
 	}
 
+	/**
+	 * 方法返回一个beans标签 解析器对象。
+	 */
 	protected BeanDefinitionParserDelegate createDelegate(
 			XmlReaderContext readerContext, Element root, @Nullable BeanDefinitionParserDelegate parentDelegate) {
 
