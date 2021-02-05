@@ -75,6 +75,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 
 
 	/** Cache of singleton objects: bean name to bean instance. */
+	//一级缓存，key beanName, value就是beanName对应的单实例对象引用。
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
 	/** Cache of singleton factories: bean name to ObjectFactory. */
@@ -173,16 +174,50 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * <p>Checks already instantiated singletons and also allows for an early
 	 * reference to a currently created singleton (resolving a circular reference).
 	 * @param beanName the name of the bean to look for
-	 * @param allowEarlyReference whether early references should be created or not
+	 * @param allowEarlyReference whether early references should be created or not  是否允许拿到早期引用
 	 * @return the registered singleton object, or {@code null} if none found
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 		// Quick check for existing instance without full singleton lock
+		//到一级缓存中获取beanName对应的单实例对象。
 		Object singletonObject = this.singletonObjects.get(beanName);
+
+		//条件一成立（singletonObject == null）：有几种可能呢？
+		//1.单实例确实尚未创建呢..
+		//2.单实例正在创建中，当前发生循环依赖了..
+
+		//什么循环依赖？
+		//A->B  B->A  或者  A->B B->C C->A
+		//单实例有几种循环依赖呢？
+		//1.构造方法循环依赖 （无解）
+		//2.setter造成的循环依赖 （有解，靠三级缓存解决。）
+
+		//三级缓存怎么解决的setter造成的循环依赖呢？
+		//举个例子：
+		//A->B,B->A  (setter依赖)
+		//1.假设Spring先实例化A,首先拿到A的构造方法，进行反射创建出来A的早期实例对象，这个时候，这个早期对象被包装成了ObjectFactory对象，放到了3级缓存
+		//2.处理A的依赖数据，检查发现，A它依赖了B对象，所以接下来，Spring就会去根据B类型到容器中去getBean(B.class)，这里就递归了。
+		//3.拿到B的构造方法，进行反射创建出来B的早期实例对象，它也会把B包装成ObjectFactory对象，放到3级缓存。
+		//4.处理B的依赖数据，检查发现，B它依赖了A对象，所以接下来，Spring就会去根据A类型到容器中去getBean(A.class)，去拿A对象，这个又递归了。
+		//5.程序还会走到当前这个方法。 getSingleton这个方法。
+		//6.条件一成立，条件二也会成立。
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			//检查二级缓存
 			singletonObject = this.earlySingletonObjects.get(beanName);
+			//条件成立：说明二级没有，到三级缓存查看。
 			if (singletonObject == null && allowEarlyReference) {
+				//Spring为什么需要有3级缓存存在，而不是只有2级缓存呢？
+				//AOP，靠什么实现的呢？动态代理
+				//静态代理：需要手动写代码，实现一个新的java文件，这个Java类 和 需要代理的对象 实现同一个接口，内部维护一个被代理对象（原生）
+				//代理类，在调用原生对象前后，可以加一些逻辑，代理对象 和 被代理对象 是两个不同的对象，内存地址一定是不一样的。
+				//动态代理：不需要人为写代码了，而是依靠字节码框架动态生成class字节码文件，然后jvm再加载，然后也一样 也是去new代理对象，这个
+				//代理对象 没啥特殊的，也是内部保留了 原生对象，然后在调用原生对象前后 实现的 字节码增加。
+				//3级缓存在这里有什么目的呢？
+				//3级缓存里面保存的是对象工厂，这个对象工厂内部保留着最原生的对象引用，ObjectFactory的实现类，getObject()方法，它需要考虑一个问题
+				//它到底到返回原生的，还是增强后的。
+				//getObject会判断当前这个早期实例 是否需要被增强，如果是，那么提前完成动态代理增强，返回代理对象。否则，返回原生对象。
+
 				synchronized (this.singletonObjects) {
 					// Consistent creation of early reference within full singleton lock
 					singletonObject = this.singletonObjects.get(beanName);
@@ -190,9 +225,12 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 						singletonObject = this.earlySingletonObjects.get(beanName);
 						if (singletonObject == null) {
 							ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
+							//条件成立： 3级有数据。这里涉及到缓存升级。
 							if (singletonFactory != null) {
 								singletonObject = singletonFactory.getObject();
+								//向2级缓存存数据
 								this.earlySingletonObjects.put(beanName, singletonObject);
+								//将3级缓存的数据干掉。
 								this.singletonFactories.remove(beanName);
 							}
 						}
