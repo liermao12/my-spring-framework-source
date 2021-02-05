@@ -412,17 +412,27 @@ public class BeanDefinitionParserDelegate {
 	 */
 	@Nullable
 	public BeanDefinitionHolder parseBeanDefinitionElement(Element ele, @Nullable BeanDefinition containingBean) {
+		//<bean xx="" xx="a,b,c"></bean>
+		//获取bean标签id属性值
 		String id = ele.getAttribute(ID_ATTRIBUTE);
+		//获取bean标签name属性值
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
-
+		//别名列表..
 		List<String> aliases = new ArrayList<>();
 		if (StringUtils.hasLength(nameAttr)) {
+			//将name属性值按照 ,; 拆分成数组
 			String[] nameArr = StringUtils.tokenizeToStringArray(nameAttr, MULTI_VALUE_ATTRIBUTE_DELIMITERS);
+			//保存到别名列表中.
 			aliases.addAll(Arrays.asList(nameArr));
 		}
 
+		//默认情况下beanName = id
 		String beanName = id;
+
+		//条件一成立：说明id没有值
+		//条件二成立：说明别名信息List有值
 		if (!StringUtils.hasText(beanName) && !aliases.isEmpty()) {
+			//拿别名列表的第一个元素当做beanName
 			beanName = aliases.remove(0);
 			if (logger.isTraceEnabled()) {
 				logger.trace("No XML 'id' specified - using '" + beanName +
@@ -434,8 +444,12 @@ public class BeanDefinitionParserDelegate {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
 
+		//核心逻辑，将ele标签解析成为bd对象的过程，都在这个方法完成..
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
+
+		//条件成立：说明ele被解析成为了bd对象
 		if (beanDefinition != null) {
+			//条件成立：说明beanName没有值，这个时候需要自动生成beanName.
 			if (!StringUtils.hasText(beanName)) {
 				try {
 					if (containingBean != null) {
@@ -443,11 +457,19 @@ public class BeanDefinitionParserDelegate {
 								beanDefinition, this.readerContext.getRegistry(), true);
 					}
 					else {
+						//生成className + # + 序列号  名称：demo#0
 						beanName = this.readerContext.generateBeanName(beanDefinition);
 						// Register an alias for the plain bean class name, if still possible,
 						// if the generator returned the class name plus a suffix.
 						// This is expected for Spring 1.2/2.0 backwards compatibility.
+
+						//拿到bd对应的className
 						String beanClassName = beanDefinition.getBeanClassName();
+						//条件一：一般都成立
+						//条件二：一般也成立
+						//条件三：一般也成立
+						//条件四：!this.readerContext.getRegistry().isBeanNameInUse(beanClassName) 成立，说明className它没有被使用.
+						//这个时候 就给当前bd一个别名叫 BeanClassName
 						if (beanClassName != null &&
 								beanName.startsWith(beanClassName) && beanName.length() > beanClassName.length() &&
 								!this.readerContext.getRegistry().isBeanNameInUse(beanClassName)) {
@@ -464,7 +486,9 @@ public class BeanDefinitionParserDelegate {
 					return null;
 				}
 			}
+
 			String[] aliasesArray = StringUtils.toStringArray(aliases);
+			//将beanDefinition 和 beanName 和 别名信息包装到 bdHoler中。
 			return new BeanDefinitionHolder(beanDefinition, beanName, aliasesArray);
 		}
 
@@ -500,29 +524,54 @@ public class BeanDefinitionParserDelegate {
 	public AbstractBeanDefinition parseBeanDefinitionElement(
 			Element ele, String beanName, @Nullable BeanDefinition containingBean) {
 
+		//表示当前 解析器状态，因为接下来要解析bean标签，所以状态设置为了 BeanEntry
 		this.parseState.push(new BeanEntry(beanName));
 
 		String className = null;
+		//一般情况下 bean 标签都包含 class 属性，除非bean标签作为 parent 标签让子标签继承时，class属性才为null。
 		if (ele.hasAttribute(CLASS_ATTRIBUTE)) {
+			//读取bean标签的className
 			className = ele.getAttribute(CLASS_ATTRIBUTE).trim();
 		}
+
+
 		String parent = null;
+		//bean标签可以继承parent标签，类似 子类 继承 父类。一般情况下，很少用到。
 		if (ele.hasAttribute(PARENT_ATTRIBUTE)) {
 			parent = ele.getAttribute(PARENT_ATTRIBUTE);
 		}
 
 		try {
+			//创建出来了一个bd对象，bd对象仅仅设置了 class 信息
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
+			//解析bean标签上面定义的attribute信息：lazy-init、init-method、 depends-on....
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
+
+			//<bean>
+			//   <description> xxxxxx </description>
+			// </bean>
+			//将description子标签的信息 读取出来 保存到 bd 中。
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
+			//解析
+			// <bean>
+			//  <meta key= "meta_1" value="meta_val_1" />
+			//  <meta key= "meta_2" value="meta_val_2" />
+			// </bean>
 			parseMetaElements(ele, bd);
+
+			//解析lookup-method
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
+
+			//解析replace-method子标签
 			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
 
+			//解析构造方法参数子标签
 			parseConstructorArgElements(ele, bd);
+			//解析 属性 子标签
 			parsePropertyElements(ele, bd);
+			//解析 qualifier 子标签
 			parseQualifierElements(ele, bd);
 
 			bd.setResource(this.readerContext.getResource());
