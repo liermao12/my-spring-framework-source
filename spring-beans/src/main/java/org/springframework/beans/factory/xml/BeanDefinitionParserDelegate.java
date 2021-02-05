@@ -561,7 +561,7 @@ public class BeanDefinitionParserDelegate {
 			// </bean>
 			parseMetaElements(ele, bd);
 
-			//解析lookup-method
+			//解析lookup-method子标签，bd.methodOverrides 属性保存需要覆盖 复写的方法。 动态代理时实现。
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
 
 			//解析replace-method子标签
@@ -605,51 +605,73 @@ public class BeanDefinitionParserDelegate {
 	public AbstractBeanDefinition parseBeanDefinitionAttributes(Element ele, String beanName,
 			@Nullable BeanDefinition containingBean, AbstractBeanDefinition bd) {
 
+		//条件成立：说明bean标签上有 singleton 属性，这个属性已经废弃了，这里给的处理是 直接给个 报错。
 		if (ele.hasAttribute(SINGLETON_ATTRIBUTE)) {
 			error("Old 1.x 'singleton' attribute in use - upgrade to 'scope' declaration", ele);
 		}
+		//条件成立：说明bean标签上有 scope 属性，读取就完事。 当然scope是有默认值，默认值是singleton
 		else if (ele.hasAttribute(SCOPE_ATTRIBUTE)) {
 			bd.setScope(ele.getAttribute(SCOPE_ATTRIBUTE));
 		}
+
+
 		else if (containingBean != null) {
 			// Take default from containing bean in case of an inner bean definition.
 			bd.setScope(containingBean.getScope());
 		}
 
+		//<bean abstract="true">...</bean>
+		//条件成立：说明bean标签是一个抽象标签，只能作为 父标签存在，让子标签去继承。
 		if (ele.hasAttribute(ABSTRACT_ATTRIBUTE)) {
 			bd.setAbstract(TRUE_VALUE.equals(ele.getAttribute(ABSTRACT_ATTRIBUTE)));
 		}
 
+		//读取bean标签上的lazy-init属性
 		String lazyInit = ele.getAttribute(LAZY_INIT_ATTRIBUTE);
+		//条件成立：说明lazyInit为空 或者 lazyInit == "default" ， 缺省值 给的是 false
 		if (isDefaultValue(lazyInit)) {
 			lazyInit = this.defaults.getLazyInit();
 		}
 		bd.setLazyInit(TRUE_VALUE.equals(lazyInit));
 
+
+		//获取bean标签autowire 属性值
 		String autowire = ele.getAttribute(AUTOWIRE_ATTRIBUTE);
+		//转换成 int 值后，设置到 autowiredMode中。
 		bd.setAutowireMode(getAutowireMode(autowire));
 
+		//<bean depends-on="a,b">..</bean> 说明当前bean实例化时，需要先处理a,b 。
+		//条件成立：说明有depends-on属性。
 		if (ele.hasAttribute(DEPENDS_ON_ATTRIBUTE)) {
+			//读取数据。
 			String dependsOn = ele.getAttribute(DEPENDS_ON_ATTRIBUTE);
 			bd.setDependsOn(StringUtils.tokenizeToStringArray(dependsOn, MULTI_VALUE_ATTRIBUTE_DELIMITERS));
 		}
 
+		//读取bean标签 autowire-candidate 属性。设置了bean的autowire-candidate=false后，当前bean就不参与外部bean的自动依赖注入。
+		//beanDefinition.autowireCandidate 默认值 "true"，表示bean可以参与到外部bean的自动依赖注入中。
 		String autowireCandidate = ele.getAttribute(AUTOWIRE_CANDIDATE_ATTRIBUTE);
 		if (isDefaultValue(autowireCandidate)) {
+			//正则表达式，且不止一个正则，可以是多个。
 			String candidatePattern = this.defaults.getAutowireCandidates();
 			if (candidatePattern != null) {
+				//将配置的正则表达式 按照 分隔号 拆分成 正则数组。
 				String[] patterns = StringUtils.commaDelimitedListToStringArray(candidatePattern);
+				//将符合正则表达式的beanName的 bd 设置autowireCandidate = true , 否则是 false.
 				bd.setAutowireCandidate(PatternMatchUtils.simpleMatch(patterns, beanName));
 			}
 		}
 		else {
+			//配置了 autowire-candidate 才会执行这里。
 			bd.setAutowireCandidate(TRUE_VALUE.equals(autowireCandidate));
 		}
 
+		//当某个接口有多个实现对象时，外部spring对象依赖该接口时，可以给该接口的实现 指定一个"主要"对象。这个主要对象，就参与到外部对象的自动依赖注入。
 		if (ele.hasAttribute(PRIMARY_ATTRIBUTE)) {
 			bd.setPrimary(TRUE_VALUE.equals(ele.getAttribute(PRIMARY_ATTRIBUTE)));
 		}
 
+		//当spring创建该bean对应的实例时，最终会执行 init-method 配置的方法
 		if (ele.hasAttribute(INIT_METHOD_ATTRIBUTE)) {
 			String initMethodName = ele.getAttribute(INIT_METHOD_ATTRIBUTE);
 			bd.setInitMethodName(initMethodName);
@@ -659,6 +681,8 @@ public class BeanDefinitionParserDelegate {
 			bd.setEnforceInitMethod(false);
 		}
 
+
+		//当spring窗口销毁时，执行spring容器内管理的bean实例的销毁方法。
 		if (ele.hasAttribute(DESTROY_METHOD_ATTRIBUTE)) {
 			String destroyMethodName = ele.getAttribute(DESTROY_METHOD_ATTRIBUTE);
 			bd.setDestroyMethodName(destroyMethodName);
@@ -668,9 +692,11 @@ public class BeanDefinitionParserDelegate {
 			bd.setEnforceDestroyMethod(false);
 		}
 
+		//读取factory-method 属性。
 		if (ele.hasAttribute(FACTORY_METHOD_ATTRIBUTE)) {
 			bd.setFactoryMethodName(ele.getAttribute(FACTORY_METHOD_ATTRIBUTE));
 		}
+		//读取factory-bean 属性。
 		if (ele.hasAttribute(FACTORY_BEAN_ATTRIBUTE)) {
 			bd.setFactoryBeanName(ele.getAttribute(FACTORY_BEAN_ATTRIBUTE));
 		}
@@ -696,15 +722,25 @@ public class BeanDefinitionParserDelegate {
 	 * Parse the meta elements underneath the given element, if any.
 	 */
 	public void parseMetaElements(Element ele, BeanMetadataAttributeAccessor attributeAccessor) {
+		// <bean id="xxxComponent" name="xxxComponet" class="xx.xx.xx.xxxComponent">
+		//  <meta key= "meta_1" value="meta_val_1" />
+		//  <meta key= "meta_2" value="meta_val_2" />
+		// </bean>
+		//nl 表示 meta 标签列表。
 		NodeList nl = ele.getChildNodes();
 		for (int i = 0; i < nl.getLength(); i++) {
+
 			Node node = nl.item(i);
+			//标签是否是缺省命名空间 和 是否是meta标签。
 			if (isCandidateElement(node) && nodeNameEquals(node, META_ELEMENT)) {
 				Element metaElement = (Element) node;
 				String key = metaElement.getAttribute(KEY_ATTRIBUTE);
 				String value = metaElement.getAttribute(VALUE_ATTRIBUTE);
+				//将meta信息封装成为一个对象。
 				BeanMetadataAttribute attribute = new BeanMetadataAttribute(key, value);
 				attribute.setSource(extractSource(metaElement));
+
+				//attributeAccessor 就是 bd。 因为 bd 继承了 AttributeAccessor 接口
 				attributeAccessor.addMetadataAttribute(attribute);
 			}
 		}
@@ -783,10 +819,12 @@ public class BeanDefinitionParserDelegate {
 		NodeList nl = beanEle.getChildNodes();
 		for (int i = 0; i < nl.getLength(); i++) {
 			Node node = nl.item(i);
+			//条件成立：说明子标签就是 lookup-method 标签。
 			if (isCandidateElement(node) && nodeNameEquals(node, LOOKUP_METHOD_ELEMENT)) {
 				Element ele = (Element) node;
 				String methodName = ele.getAttribute(NAME_ATTRIBUTE);
 				String beanRef = ele.getAttribute(BEAN_ELEMENT);
+
 				LookupOverride override = new LookupOverride(methodName, beanRef);
 				override.setSource(extractSource(ele));
 				overrides.addOverride(override);
@@ -825,18 +863,26 @@ public class BeanDefinitionParserDelegate {
 	 * Parse a constructor-arg element.
 	 */
 	public void parseConstructorArgElement(Element ele, BeanDefinition bd) {
+		//获取constructor标签 index属性
 		String indexAttr = ele.getAttribute(INDEX_ATTRIBUTE);
+		//获取constructor标签 type属性
 		String typeAttr = ele.getAttribute(TYPE_ATTRIBUTE);
+		//获取constructor标签 name属性
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
+
 		if (StringUtils.hasLength(indexAttr)) {
 			try {
+				//将字符串转为 Int
 				int index = Integer.parseInt(indexAttr);
 				if (index < 0) {
 					error("'index' cannot be lower than 0", ele);
 				}
 				else {
 					try {
+						//给解析器对象设置状态 表示正在解析constructor参数。
 						this.parseState.push(new ConstructorArgumentEntry(index));
+
+						//将constructor-arg标签解析完成，返回解析完的对象表示。
 						Object value = parsePropertyValue(ele, bd, null);
 						ConstructorArgumentValues.ValueHolder valueHolder = new ConstructorArgumentValues.ValueHolder(value);
 						if (StringUtils.hasLength(typeAttr)) {
@@ -865,8 +911,11 @@ public class BeanDefinitionParserDelegate {
 		else {
 			try {
 				this.parseState.push(new ConstructorArgumentEntry());
+
 				Object value = parsePropertyValue(ele, bd, null);
+
 				ConstructorArgumentValues.ValueHolder valueHolder = new ConstructorArgumentValues.ValueHolder(value);
+
 				if (StringUtils.hasLength(typeAttr)) {
 					valueHolder.setType(typeAttr);
 				}
@@ -977,8 +1026,13 @@ public class BeanDefinitionParserDelegate {
 			}
 		}
 
+		//property 或者 contructor-arg 标签有ref属性
 		boolean hasRefAttribute = ele.hasAttribute(REF_ATTRIBUTE);
+		//property 或者 contructor-arg 标签有value属性
 		boolean hasValueAttribute = ele.hasAttribute(VALUE_ATTRIBUTE);
+
+		//条件一：ref 和 value 不能同时有，同时有就报错。
+		//条件二：ref 或者 value 有一个的话，就不能再有 子标签了。
 		if ((hasRefAttribute && hasValueAttribute) ||
 				((hasRefAttribute || hasValueAttribute) && subElement != null)) {
 			error(elementName +
@@ -986,15 +1040,18 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		if (hasRefAttribute) {
+			//读取标签ref属性
 			String refName = ele.getAttribute(REF_ATTRIBUTE);
 			if (!StringUtils.hasText(refName)) {
 				error(elementName + " contains empty 'ref' attribute", ele);
 			}
+			//封装成对象。
 			RuntimeBeanReference ref = new RuntimeBeanReference(refName);
 			ref.setSource(extractSource(ele));
 			return ref;
 		}
 		else if (hasValueAttribute) {
+			//封装成对象。
 			TypedStringValue valueHolder = new TypedStringValue(ele.getAttribute(VALUE_ATTRIBUTE));
 			valueHolder.setSource(extractSource(ele));
 			return valueHolder;
