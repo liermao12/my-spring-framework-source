@@ -187,7 +187,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		//1.单实例确实尚未创建呢..
 		//2.单实例正在创建中，当前发生循环依赖了..
 
-		//什么循环依赖？
+		//什么是循环依赖？
 		//A->B  B->A  或者  A->B B->C C->A
 		//单实例有几种循环依赖呢？
 		//1.构造方法循环依赖 （无解）
@@ -254,6 +254,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		synchronized (this.singletonObjects) {
 			Object singletonObject = this.singletonObjects.get(beanName);
 			if (singletonObject == null) {
+				//容器销毁时，会设置这个属性为true，这个时候就不能再创建bean实例了，直接抛错。
 				if (this.singletonsCurrentlyInDestruction) {
 					throw new BeanCreationNotAllowedException(beanName,
 							"Singleton bean creation not allowed while singletons of this factory are in destruction " +
@@ -262,7 +263,18 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
 				}
+				//将当前beanName放入到"正在创建中单实例集合"，放入成功，说明没有产生循环依赖，失败，则产生循环依赖了，里面会拋异常。
+				//举个例子：构造方法参数依赖
+				//A->B  B->A
+				//1.加载A,根据A的构造方法，想要去实例化A对象，但是发现A的构造方法有一个参数是B（在这之前，已经向这个集合中添加了{A}）
+				//2.因为A的构造方法依赖B，所以触发了加载B的逻辑..
+				//3.加载B，根据B的构造方法，想要去实例化B对象，但是发现B的构造方法有一个参数是A（在这之前，已经向这个集合中添加了{A,B}）
+				//4.因为B的构造方法依赖A,所以再次触发了加载A的逻辑..
+				//5.再次来到这个getSingleton方法里，调用beforeSingletonCreation(A)，因为创建中集合 已经有A了,所以添加失败，抛出异常
+				//完事。
 				beforeSingletonCreation(beanName);
+
+
 				boolean newSingleton = false;
 				boolean recordSuppressedExceptions = (this.suppressedExceptions == null);
 				if (recordSuppressedExceptions) {
@@ -479,18 +491,36 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		}
 	}
 
+	//<bean name="A" depends-on="B" ... />
+	//<bean name="B" depends-on="A" .../>
+
+	//以B为视角 dependentBeanMap {"B":{"A"}}
+	//以A为视角 dependenciesForBeanMap {"A":{"B"}}
+	//beanName: B， dependentBeanName：A
 	private boolean isDependent(String beanName, String dependentBeanName, @Nullable Set<String> alreadySeen) {
 		if (alreadySeen != null && alreadySeen.contains(beanName)) {
 			return false;
 		}
 		String canonicalName = canonicalName(beanName);
+		//{"A"}
 		Set<String> dependentBeans = this.dependentBeanMap.get(canonicalName);
 		if (dependentBeans == null) {
 			return false;
 		}
+		//{"A"} 包含A,所以条件会成立，这里返回true，表示产生了循环依赖..
 		if (dependentBeans.contains(dependentBeanName)) {
 			return true;
 		}
+
+		//<bean name="A" dp="B">
+		//<bean name="B" dp="C">
+		//<bean name="C" dp="A">
+		//dependentBeanMap={B:{A},C:{B}}
+		//isDependent(C,A)
+		//C#dependentBeans = {B}
+		//isDependent(B,A);
+		//B#dependentBeans = {A}
+		//就判断出来当前发生循环依赖问题了..返回true了。
 		for (String transitiveDependency : dependentBeans) {
 			if (alreadySeen == null) {
 				alreadySeen = new HashSet<>();
