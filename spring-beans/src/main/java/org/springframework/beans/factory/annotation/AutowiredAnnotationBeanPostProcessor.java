@@ -309,10 +309,14 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 								"] from ClassLoader [" + beanClass.getClassLoader() + "] failed", ex);
 					}
 					List<Constructor<?>> candidates = new ArrayList<>(rawCandidates.length);
+					//唯一的选项 构造器， 什么情况下，这个变量有值呢？
+					//@Autowired(required = "true")
 					Constructor<?> requiredConstructor = null;
+					//缺省的 构造器 ，无参构造器
 					Constructor<?> defaultConstructor = null;
 					Constructor<?> primaryConstructor = BeanUtils.findPrimaryConstructor(beanClass);
 					int nonSyntheticConstructors = 0;
+
 					for (Constructor<?> candidate : rawCandidates) {
 						if (!candidate.isSynthetic()) {
 							nonSyntheticConstructors++;
@@ -320,7 +324,10 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 						else if (primaryConstructor != null) {
 							continue;
 						}
+						//如果构造方法上 有@Autowired 或者 @Value 或者 @Inject 这里 ann 就不为null。
 						MergedAnnotation<?> ann = findAutowiredAnnotation(candidate);
+
+
 						if (ann == null) {
 							Class<?> userClass = ClassUtils.getUserClass(beanClass);
 							if (userClass != beanClass) {
@@ -334,6 +341,7 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 								}
 							}
 						}
+
 						if (ann != null) {
 							if (requiredConstructor != null) {
 								throw new BeanCreationException(beanName,
@@ -343,6 +351,8 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 							}
 							boolean required = determineRequiredStatus(ann);
 							if (required) {
+								//@Autowired(required = true) 有这种注解的Class，就只能有一个构造方法可用。如果
+								//其它的构造方法上 还有 @Autowired 那报错。
 								if (!candidates.isEmpty()) {
 									throw new BeanCreationException(beanName,
 											"Invalid autowire-marked constructors: " + candidates +
@@ -353,10 +363,14 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 							}
 							candidates.add(candidate);
 						}
+						//条件成立：说明当前遍历的构造器 就是 默认无参构造器
 						else if (candidate.getParameterCount() == 0) {
 							defaultConstructor = candidate;
 						}
 					}
+
+
+
 					if (!candidates.isEmpty()) {
 						// Add default constructor to list of optional constructors, as fallback.
 						if (requiredConstructor == null) {
@@ -519,7 +533,9 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 
 	@Nullable
 	private MergedAnnotation<?> findAutowiredAnnotation(AccessibleObject ao) {
+		//该方法拿到当前构造方法上注解信息的集合。 MergedAnnotations
 		MergedAnnotations annotations = MergedAnnotations.from(ao);
+
 		for (Class<? extends Annotation> type : this.autowiredAnnotationTypes) {
 			MergedAnnotation<?> annotation = annotations.get(type);
 			if (annotation.isPresent()) {

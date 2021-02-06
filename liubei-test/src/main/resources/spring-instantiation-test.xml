@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+
+	<bean id="student" init-method="start" class="com.liubei.code.study.no_3.Student">
+		<constructor-arg index="0" value="1"></constructor-arg>
+		<constructor-arg index="1" value="小刘"></constructor-arg>
+	</bean>
+
+	<!--<bean id="teacher" class="com.liubei.code.study.no_3.Teacher">
+		<property name="id" value="1"/>
+		<property name="name" value="小刘"/>
+		<property name="subject" value="脱发精英"/>
+	</bean>-->
+	<bean class="com.liubei.code.study.no_3.MyInstantiationAwareBeanPostProcessor" ></bean>
+</beans>
