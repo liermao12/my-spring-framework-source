@@ -1,5 +1,7 @@
 package com.liubei;
 
+import org.springframework.stereotype.Component;
+
 /**
  * TODO
  *
@@ -8,4 +10,10 @@ package com.liubei;
  * @Version 1.0
  */
 public class ComponentB {
+
+	private ComponentA componentA;
+
+	public ComponentB(ComponentA componentA){
+		this.componentA = componentA;
+	}
 }

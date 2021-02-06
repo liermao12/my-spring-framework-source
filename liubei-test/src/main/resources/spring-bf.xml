@@ -4,6 +4,10 @@
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 
-	<bean id="componentA" class="com.liubei.ComponentA"></bean>
-	<bean id="componentB" class="com.liubei.ComponentB"></bean>
+	<bean id="componentA" class="com.liubei.ComponentA">
+		<constructor-arg name="componentB" ref="componentB"></constructor-arg>
+	</bean>
+	<bean id="componentB" class="com.liubei.ComponentB">
+		<constructor-arg name="componentA" ref="componentA"></constructor-arg>
+	</bean>
 </beans>
