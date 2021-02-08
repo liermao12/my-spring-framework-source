@@ -128,19 +128,28 @@ class ConstructorResolver {
 			@Nullable Constructor<?>[] chosenCtors, @Nullable Object[] explicitArgs) {
 
 		BeanWrapperImpl bw = new BeanWrapperImpl();
+		//1.向wrapper中注册 conversion
+		//2.向wrapper中注册 属性编辑器...
 		this.beanFactory.initBeanWrapper(bw);
 
+		//实例化反射调用的构造器
 		Constructor<?> constructorToUse = null;
+		//实例化时真正去用的参数 持有对象
 		ArgumentsHolder argsHolderToUse = null;
+
+		//实例化时使用的参数。
 		Object[] argsToUse = null;
 
 		if (explicitArgs != null) {
 			argsToUse = explicitArgs;
 		}
 		else {
+			//表示 构造器参数需要做转换的的参数引用。
 			Object[] argsToResolve = null;
 			synchronized (mbd.constructorArgumentLock) {
 				constructorToUse = (Constructor<?>) mbd.resolvedConstructorOrFactoryMethod;
+				//条件成立：说明当前bd生成实例，不是第一次..缓存中有解析好的构造器方法可以直接拿来反射调用...
+				//constructorArgumentsResolved 条件成立,说明构造器参数已经解析过了..
 				if (constructorToUse != null && mbd.constructorArgumentsResolved) {
 					// Found a cached constructor...
 					argsToUse = mbd.resolvedConstructorArguments;
@@ -149,13 +158,17 @@ class ConstructorResolver {
 					}
 				}
 			}
+			//条件成立：resolvedConstructorArguments 参数是 null，那preparedConstructorArguments一定是有值的。
 			if (argsToResolve != null) {
+				//可以认为preparedConstructorArguments 不是完全解析好的参数..还需要进一步解析..
 				argsToUse = resolvePreparedArguments(beanName, mbd, bw, constructorToUse, argsToResolve);
 			}
 		}
 
+		//条件成立：说明上面缓存机制失败，需要进行构造器匹配逻辑... autowireConstructors
 		if (constructorToUse == null || argsToUse == null) {
 			// Take specified constructors, if any.
+			//chosenCtors 什么时候有数据呢？ 构造方法上有 @Autowired注解时，chosenCtors才会有数据。
 			Constructor<?>[] candidates = chosenCtors;
 			if (candidates == null) {
 				Class<?> beanClass = mbd.getBeanClass();
