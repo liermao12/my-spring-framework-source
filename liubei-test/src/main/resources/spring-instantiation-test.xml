@@ -14,5 +14,5 @@
 		<property name="name" value="小刘"/>
 		<property name="subject" value="脱发精英"/>
 	</bean>-->
-	<bean class="com.liubei.code.study.no_3.MyInstantiationAwareBeanPostProcessor" ></bean>
+	<!--<bean class="com.liubei.code.study.no_3.MyInstantiationAwareBeanPostProcessor" ></bean>-->
 </beans>
