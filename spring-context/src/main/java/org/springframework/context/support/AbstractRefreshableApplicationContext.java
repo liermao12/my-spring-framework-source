@@ -131,8 +131,9 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 			beanFactory.setSerializationId(getId());
 
 			customizeBeanFactory(beanFactory);
-
+			//加载bd信息。这一步完成之后，所有的配置信息(bd)就注册到bf内了。
 			loadBeanDefinitions(beanFactory);
+			//保留引用。
 			this.beanFactory = beanFactory;
 		}
 		catch (IOException ex) {
