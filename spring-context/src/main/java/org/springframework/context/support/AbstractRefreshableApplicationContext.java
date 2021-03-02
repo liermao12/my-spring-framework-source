@@ -119,14 +119,19 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 */
 	@Override
 	protected final void refreshBeanFactory() throws BeansException {
+		// 条件成立：说明当前applicationContext内部拥有一个beanFactory接口实例，咱们需要将该beanFactory实例完全释放掉。
 		if (hasBeanFactory()) {
+			// 销毁原beanFactory内部的实例的流程
 			destroyBeans();
 			closeBeanFactory();
 		}
 		try {
 			DefaultListableBeanFactory beanFactory = createBeanFactory();
+
 			beanFactory.setSerializationId(getId());
+
 			customizeBeanFactory(beanFactory);
+
 			loadBeanDefinitions(beanFactory);
 			this.beanFactory = beanFactory;
 		}
@@ -147,6 +152,7 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	@Override
 	protected final void closeBeanFactory() {
 		DefaultListableBeanFactory beanFactory = this.beanFactory;
+		//这一步，其实就是将context内部的beanFactory设置为空，因为后续要新创建一个全新的beanFactory实例。
 		if (beanFactory != null) {
 			beanFactory.setSerializationId(null);
 			this.beanFactory = null;
@@ -212,6 +218,8 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 * @see DefaultListableBeanFactory#setAllowEagerClassLoading
 	 */
 	protected void customizeBeanFactory(DefaultListableBeanFactory beanFactory) {
+		// 该字段设置为false，表示bf内部管理的bd信息 不允许覆盖
+		// 默认情况下，bf内的 allowBeanDefinitionOverriding 字段为true , 是允许覆盖的。
 		if (this.allowBeanDefinitionOverriding != null) {
 			beanFactory.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
 		}
