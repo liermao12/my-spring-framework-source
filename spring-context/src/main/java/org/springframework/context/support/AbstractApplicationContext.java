@@ -598,6 +598,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
+				// 完成刷新 后做的一些事情，主要是启动生命周期对象。
 				finishRefresh();
 			}
 
