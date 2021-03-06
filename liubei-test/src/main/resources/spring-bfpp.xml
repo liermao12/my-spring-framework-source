@@ -3,17 +3,28 @@
 	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-	<bean id="student" class="com.liubei.code.study.no_5.fieldEditor.Student">
-		<property name="name" value="zhangsan" />
-		<property name="birthday" value="2000-01-01" />
+	<bean id="bfpp" class="com.liubei.code.study.no_5.bfpp.ReplaceObscenitiesBeanFactoryPostProcessor">
+		<property name="obscenites">
+			<set>
+				<value>金瓶梅</value>
+				<value>鸳鸯戏水</value>
+				<value>双人格斗</value>
+			</set>
+		</property>
 	</bean>
 
-	<!--自定义属性编辑器-->
-	<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer" >
-		<property name="propertyEditorRegistrars">
-			<list>
-				<bean class="com.liubei.code.study.no_5.fieldEditor.DatePropertyEditorRegistrar" ></bean>
-			</list>
-		</property>
+	<bean id="book-01" class="com.liubei.code.study.no_5.bfpp.Book">
+		<property name="name" value="霸道总裁爱上灰姑娘" />
+		<property name="author" value="网络"/>
+	</bean>
+
+	<bean id="book-02" class="com.liubei.code.study.no_5.bfpp.Book">
+		<property name="name" value="鸳鸯戏水" />
+		<property name="author" value="网络"/>
+	</bean>
+
+	<bean id="book-03" class="com.liubei.code.study.no_5.bfpp.Book">
+		<property name="name" value="双人格斗" />
+		<property name="author" value="网络"/>
 	</bean>
 </beans>

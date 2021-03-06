@@ -7,6 +7,7 @@ import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.util.StringValueResolver;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -20,11 +21,13 @@ public class ReplaceObscenitiesBeanFactoryPostProcessor implements BeanFactoryPo
 
 	private Set<String> obscenites;
 
-	public ReplaceObscenitiesBeanFactoryPostProcessor(Set<String> obscenites) {
-		this.obscenites = obscenites;
+
+
+	public ReplaceObscenitiesBeanFactoryPostProcessor() {
+		this.obscenites = new HashSet<>();
 	}
 
-	public void setObscenites() {
+	public void setObscenites(Set<String> obscenites) {
 		this.obscenites.clear();
 		for (String obscenity : obscenites) {
 			this.obscenites.add(obscenity);
