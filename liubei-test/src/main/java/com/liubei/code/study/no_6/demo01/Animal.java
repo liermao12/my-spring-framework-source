@@ -10,4 +10,6 @@ package com.liubei.code.study.no_6.demo01;
 public interface Animal {
 
 	public void eat();
+
+	public void go();
 }

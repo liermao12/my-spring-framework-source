@@ -12,4 +12,9 @@ public class Cat implements Animal{
 	public void eat() {
 		System.out.println("猫猫 吃 猫粮！");
 	}
+
+	@Override
+	public void go() {
+		System.out.println("猫猫~ 跑跑!");
+	}
 }
