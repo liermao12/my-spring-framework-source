@@ -97,6 +97,9 @@ public abstract class AopConfigUtils {
 	public static BeanDefinition registerAspectJAnnotationAutoProxyCreatorIfNecessary(
 			BeanDefinitionRegistry registry, @Nullable Object source) {
 
+		//参数一：固定类型 AnnotationAwareAspectJAutoProxyCreator 很关键的class，咱们的Aop功能 全靠这个class了
+		//参数二：Spring容器
+		//参数三：element
 		return registerOrEscalateApcAsRequired(AnnotationAwareAspectJAutoProxyCreator.class, registry, source);
 	}
 
@@ -114,13 +117,18 @@ public abstract class AopConfigUtils {
 		}
 	}
 
+	//参数一：固定类型 AnnotationAwareAspectJAutoProxyCreator 很关键的class，咱们的Aop功能 全靠这个class了
+	//参数二：Spring容器
+	//参数三：element
 	@Nullable
 	private static BeanDefinition registerOrEscalateApcAsRequired(
 			Class<?> cls, BeanDefinitionRegistry registry, @Nullable Object source) {
 
 		Assert.notNull(registry, "BeanDefinitionRegistry must not be null");
 
+		//判断容器内是否有名称是 AUTO_PROXY_CREATOR_BEAN_NAME BD
 		if (registry.containsBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME)) {
+			// 一般不会走这里，走这里主要原因是 自定义 注解解析器了...
 			BeanDefinition apcDefinition = registry.getBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME);
 			if (!cls.getName().equals(apcDefinition.getBeanClassName())) {
 				int currentPriority = findPriorityForClass(apcDefinition.getBeanClassName());
@@ -132,11 +140,16 @@ public abstract class AopConfigUtils {
 			return null;
 		}
 
+
+		//正常路径，执行下面代码。
+
+		//创建了一个BD，并且设置class 是 AnnotationAwareAspectJAutoProxyCreator 最后将这个bd 注册到 容器中了
 		RootBeanDefinition beanDefinition = new RootBeanDefinition(cls);
 		beanDefinition.setSource(source);
 		beanDefinition.getPropertyValues().add("order", Ordered.HIGHEST_PRECEDENCE);
 		beanDefinition.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
 		registry.registerBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME, beanDefinition);
+
 		return beanDefinition;
 	}
 
