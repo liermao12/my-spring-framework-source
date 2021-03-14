@@ -47,24 +47,47 @@ import org.springframework.lang.Nullable;
 @SuppressWarnings("serial")
 public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializable {
 
+	/**
+	 * 该方法的目标，就是查找出来适合当前方法 增强！
+	 * @param config ProxyFactory ，它掌握着AOP的所有资料呢
+	 * @param method 目标对象的方法
+	 * @param targetClass 目标对象的类型
+	 */
 	@Override
 	public List<Object> getInterceptorsAndDynamicInterceptionAdvice(
 			Advised config, Method method, @Nullable Class<?> targetClass) {
 
 		// This is somewhat tricky... We have to process introductions first,
 		// but we need to preserve order in the ultimate list.
+		//AdvisorAdapterRegistry 接口有两个作用，一个作用是 可以向里面注册 AdvisorAdapter 适配器
+		//适配器目的：1.将非Advisor类型的 增强 ，包装成为一个Advisor
+		//          2.将Advisor类型的 增强，提取出来对应的 MethodInterceptor
 		AdvisorAdapterRegistry registry = GlobalAdvisorAdapterRegistry.getInstance();
+
+		// 获取出来 ProxyFactory 内部持有的增强信息
+		// 1. addAdvice()   2. addAdvisor()   最终 在ProxyFactory内 都会包装成 Advisor 的。
 		Advisor[] advisors = config.getAdvisors();
+		// 拦截器列表
 		List<Object> interceptorList = new ArrayList<>(advisors.length);
+		// 真实的目标对象类型
 		Class<?> actualClass = (targetClass != null ? targetClass : method.getDeclaringClass());
+		// 引介增强  不关心了....
 		Boolean hasIntroductions = null;
 
+
 		for (Advisor advisor : advisors) {
+			//条件成立：说明当前advisor是包含 切点 信息的，所以 这个if内部的逻辑，就是做匹配算法。
 			if (advisor instanceof PointcutAdvisor) {
+
 				// Add it conditionally.
+				// 转换成 可以 获取 切点信息的接口
 				PointcutAdvisor pointcutAdvisor = (PointcutAdvisor) advisor;
+				// 条件二：成立，说明当前被代理对象的class匹配 当前Advisor成功,这一步 只是class匹配成功。
 				if (config.isPreFiltered() || pointcutAdvisor.getPointcut().getClassFilter().matches(actualClass)) {
+					//获取 切点信息 的方法匹配器
 					MethodMatcher mm = pointcutAdvisor.getPointcut().getMethodMatcher();
+
+					//表示方法是否匹配
 					boolean match;
 					if (mm instanceof IntroductionAwareMethodMatcher) {
 						if (hasIntroductions == null) {
@@ -73,10 +96,17 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 						match = ((IntroductionAwareMethodMatcher) mm).matches(method, actualClass, hasIntroductions);
 					}
 					else {
+						// 如果 目标方法匹配成功，那么 match = true，静态匹配成功。
 						match = mm.matches(method, actualClass);
 					}
+
+					//静态匹配成功的话，再检查是否需要 运行时匹配。
 					if (match) {
+
+						// 提取出来 advisor内持有的拦截器信息
 						MethodInterceptor[] interceptors = registry.getInterceptors(advisor);
+
+						// 是否运行时匹配？
 						if (mm.isRuntime()) {
 							// Creating a new object instance in the getInterceptors() method
 							// isn't a problem as we normally cache created chains.
@@ -85,11 +115,13 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 							}
 						}
 						else {
+							// 将当前advisor内部的方法拦截器 追加到 interceptorList
 							interceptorList.addAll(Arrays.asList(interceptors));
 						}
 					}
 				}
 			}
+			// 引介增强 不考虑...
 			else if (advisor instanceof IntroductionAdvisor) {
 				IntroductionAdvisor ia = (IntroductionAdvisor) advisor;
 				if (config.isPreFiltered() || ia.getClassFilter().matches(actualClass)) {
@@ -97,12 +129,13 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 					interceptorList.addAll(Arrays.asList(interceptors));
 				}
 			}
+			// 说明当前 Advisor 匹配全部class 全部 method
 			else {
 				Interceptor[] interceptors = registry.getInterceptors(advisor);
 				interceptorList.addAll(Arrays.asList(interceptors));
 			}
 		}
-
+		// 返回所有匹配当前method的方法拦截器
 		return interceptorList;
 	}
 

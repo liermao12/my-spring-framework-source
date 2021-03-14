@@ -54,9 +54,15 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 	 */
 	private static final boolean IN_NATIVE_IMAGE = (System.getProperty("org.graalvm.nativeimage.imagecode") != null);
 
-
+	/**
+	 * config 就是我们的ProxyFacoty对象，咱们说过 ProxyFactory 它是一个配置管理对象，保存着 创建 代理对象所有的生产资料呢。
+	 */
 	@Override
 	public AopProxy createAopProxy(AdvisedSupport config) throws AopConfigException {
+
+		//条件一：config.isOptimize() 暂且不管
+		//条件二：config.isProxyTargetClass() true 强制使用cglib 动态代理
+		//条件三：hasNoUserSuppliedProxyInterfaces(config) 说明被代理对象 没有实现任何接口，没有办法使用JDK动态代理，只能使用cglib 动态代理
 		if (!IN_NATIVE_IMAGE &&
 				(config.isOptimize() || config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config))) {
 			Class<?> targetClass = config.getTargetClass();
@@ -64,12 +70,14 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 				throw new AopConfigException("TargetSource cannot determine target class: " +
 						"Either an interface or a target is required for proxy creation.");
 			}
+			//条件成立：说明targetClass是接口 或者 已经是被代理过的类型了，只能使用Jdk动态代理
 			if (targetClass.isInterface() || Proxy.isProxyClass(targetClass)) {
 				return new JdkDynamicAopProxy(config);
 			}
 			return new ObjenesisCglibAopProxy(config);
 		}
-		else {
+		else {//执行到else是什么情况 ？ targetClass 是实现了接口情况下，会走这个分支！咱们大多数情况都是 面向接口 编程，所以主要分析 JdkDynamicAopProxy
+
 			return new JdkDynamicAopProxy(config);
 		}
 	}
@@ -80,6 +88,7 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 	 * (or no proxy interfaces specified at all).
 	 */
 	private boolean hasNoUserSuppliedProxyInterfaces(AdvisedSupport config) {
+		//config.getProxiedInterfaces()； 咱们创建 ProxyFactory(target) ，有一行代码就是获取target接口的。
 		Class<?>[] ifcs = config.getProxiedInterfaces();
 		return (ifcs.length == 0 || (ifcs.length == 1 && SpringProxy.class.isAssignableFrom(ifcs[0])));
 	}

@@ -88,18 +88,19 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	/**
 	 * Index from 0 of the current interceptor we're invoking.
 	 * -1 until we invoke: then the current interceptor.
+	 * 表示当前拦截器下标，从-1开始
 	 */
 	private int currentInterceptorIndex = -1;
 
 
 	/**
 	 * Construct a new ReflectiveMethodInvocation with the given arguments.
-	 * @param proxy the proxy object that the invocation was made on
-	 * @param target the target object to invoke
-	 * @param method the method to invoke
-	 * @param arguments the arguments to invoke the method with
-	 * @param targetClass the target class, for MethodMatcher invocations
-	 * @param interceptorsAndDynamicMethodMatchers interceptors that should be applied,
+	 * @param proxy the proxy object that the invocation was made on    代理对象
+	 * @param target the target object to invoke						目标对象
+	 * @param method the method to invoke								目标对象的方法
+	 * @param arguments the arguments to invoke the method with			目标对象方法的参数
+	 * @param targetClass the target class, for MethodMatcher invocations	目标对象的类型
+	 * @param interceptorsAndDynamicMethodMatchers interceptors that should be applied,		方法拦截器List
 	 * along with any InterceptorAndDynamicMethodMatchers that need evaluation at runtime.
 	 * MethodMatchers included in this struct must already have been found to have matched
 	 * as far as was possibly statically. Passing an array might be about 10% faster,
@@ -109,6 +110,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 			Object proxy, @Nullable Object target, Method method, @Nullable Object[] arguments,
 			@Nullable Class<?> targetClass, List<Object> interceptorsAndDynamicMethodMatchers) {
 
+		//
 		this.proxy = proxy;
 		this.target = target;
 		this.targetClass = targetClass;
@@ -159,12 +161,17 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	@Nullable
 	public Object proceed() throws Throwable {
 		// We start with an index of -1 and increment early.
+		//条件成立：说明方法拦截器 全部都已经调用过了。接下来 需要执行 目标对象的目标方法。
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+			//调用连接点
 			return invokeJoinpoint();
 		}
 
+		// 获取下一个方法拦截器
 		Object interceptorOrInterceptionAdvice =
 				this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
+
+		// 条件成立：说明 方法拦截器 需要做 运行时匹配，很少用到运行时匹配。
 		if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
 			// Evaluate dynamic method matcher here: static part will already have
 			// been evaluated and found to match.
@@ -180,9 +187,11 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 				return proceed();
 			}
 		}
+		// 大部分情况，咱们都是执行else。
 		else {
 			// It's an interceptor, so we just invoke it: The pointcut will have
 			// been evaluated statically before this object was constructed.
+			// 让当前方法拦截器执行，并且将 this 传递了 进去，this? MethodInvocation
 			return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
 		}
 	}
