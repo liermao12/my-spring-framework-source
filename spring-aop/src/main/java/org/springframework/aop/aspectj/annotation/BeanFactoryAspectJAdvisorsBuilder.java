@@ -42,6 +42,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 
 	private final ListableBeanFactory beanFactory;
 
+	// 其实就是 ReflectiveAspectJAdvisorFactory
 	private final AspectJAdvisorFactory advisorFactory;
 
 	@Nullable
@@ -83,31 +84,55 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 	public List<Advisor> buildAspectJAdvisors() {
 		List<String> aspectNames = this.aspectBeanNames;
 
+		// 条件成立：说明 缓存内没有 advisor 信息.. 需要一个一个的 提取出来。
 		if (aspectNames == null) {
 			synchronized (this) {
 				aspectNames = this.aspectBeanNames;
 				if (aspectNames == null) {
+
+					// 保存 通过@Aspect 注解定义的 Advisor 数据
 					List<Advisor> advisors = new ArrayList<>();
+
+					// 添加@Aspect注解的BeanName
 					aspectNames = new ArrayList<>();
+
+					// 获取出来Spring容器内全部的 beanName
 					String[] beanNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 							this.beanFactory, Object.class, true, false);
+
+					// 遍历所有beanName
 					for (String beanName : beanNames) {
+
 						if (!isEligibleBean(beanName)) {
 							continue;
 						}
 						// We must be careful not to instantiate beans eagerly as in this case they
 						// would be cached by the Spring container but would not have been weaved.
+						// 当bean标签是 parent 类型的时候，class可以是null
 						Class<?> beanType = this.beanFactory.getType(beanName, false);
 						if (beanType == null) {
 							continue;
 						}
+
+						// 查询当前类型 或者 父类 父父类 ... 是否有 @Aspect 注解，如果有 说明当前类型是 Aspect 类型。
 						if (this.advisorFactory.isAspect(beanType)) {
+
 							aspectNames.add(beanName);
+
+							// Aspect元数据
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
+
+							// 正常情况下，AjType都是 PerClauseKind.SINGLETON ，其实情况，咱们不考虑了..属于 AspectJ高级用法。
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
+
+								//使用工厂模式 管理 Aspect元数据 关联的 真实 @Aspect注解的 实例对象
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
+
+								//ReflectiveAspectJAdvisorFactory # getAdvisors
+								//这个方法返回 指定添加了 @Aspect 注解的 class相关的 Advisor 信息。
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
+
 								if (this.beanFactory.isSingleton(beanName)) {
 									this.advisorsCache.put(beanName, classAdvisors);
 								}
@@ -129,6 +154,8 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 							}
 						}
 					}
+
+					// 将刚刚 for 循环处理的 打了 @Aspect 注解的 beanName 缓存起来，表示 提取Advisor工作已经做过了
 					this.aspectBeanNames = aspectNames;
 					return advisors;
 				}

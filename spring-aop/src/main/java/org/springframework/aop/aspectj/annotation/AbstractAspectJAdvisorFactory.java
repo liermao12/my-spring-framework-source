@@ -130,7 +130,9 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 	@SuppressWarnings("unchecked")
 	@Nullable
 	protected static AspectJAnnotation<?> findAspectJAnnotationOnMethod(Method method) {
+		//检查当前方法 是否有这些注解...
 		for (Class<?> clazz : ASPECTJ_ANNOTATION_CLASSES) {
+
 			AspectJAnnotation<?> foundAnnotation = findAnnotation(method, (Class<Annotation>) clazz);
 			if (foundAnnotation != null) {
 				return foundAnnotation;
@@ -139,10 +141,18 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 		return null;
 	}
 
+	/**
+	 *
+	 * @param method 检查的当前方法
+	 * @param toLookFor 需要检查的注解类型
+	 */
 	@Nullable
 	private static <A extends Annotation> AspectJAnnotation<A> findAnnotation(Method method, Class<A> toLookFor) {
+		// 提取出来 Annotation 数据..
 		A result = AnnotationUtils.findAnnotation(method, toLookFor);
+		// 条件成立：说明当前方法上面定义了 指定类型的 注解
 		if (result != null) {
+			//包装类型成为 AspectJ 类型注解。
 			return new AspectJAnnotation<>(result);
 		}
 		else {
@@ -191,6 +201,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 
 		public AspectJAnnotation(A annotation) {
 			this.annotation = annotation;
+
 			this.annotationType = determineAnnotationType(annotation);
 			try {
 				this.pointcutExpression = resolveExpression(annotation);

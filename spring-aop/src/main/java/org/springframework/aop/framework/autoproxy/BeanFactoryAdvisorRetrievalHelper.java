@@ -70,17 +70,22 @@ public class BeanFactoryAdvisorRetrievalHelper {
 		if (advisorNames == null) {
 			// Do not initialize FactoryBeans here: We need to leave all regular beans
 			// uninitialized to let the auto-proxy creator apply to them!
+			// 通过 bf 查询 出来 BD 配置的 class 是 Advisor 子类的 BeanName
 			advisorNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 					this.beanFactory, Advisor.class, true, false);
 			this.cachedAdvisorBeanNames = advisorNames;
 		}
+
 		if (advisorNames.length == 0) {
 			return new ArrayList<>();
 		}
 
 		List<Advisor> advisors = new ArrayList<>();
 		for (String name : advisorNames) {
+
+			//咱们当前 retrievalHelper 是 Adapter 包装的，真正的逻辑 在 Adapter 里面
 			if (isEligibleBean(name)) {
+
 				if (this.beanFactory.isCurrentlyInCreation(name)) {
 					if (logger.isTraceEnabled()) {
 						logger.trace("Skipping currently created advisor '" + name + "'");
@@ -88,6 +93,7 @@ public class BeanFactoryAdvisorRetrievalHelper {
 				}
 				else {
 					try {
+						//使用 Spring 容器查询出来当前这个 Advisor 类型的实例。
 						advisors.add(this.beanFactory.getBean(name, Advisor.class));
 					}
 					catch (BeanCreationException ex) {

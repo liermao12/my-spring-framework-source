@@ -143,6 +143,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	private final Map<Object, Class<?>> proxyTypes = new ConcurrentHashMap<>(16);
 
+	/**
+	 * key: beanName
+	 * value: boolean true 表示这个bean已经被增强过了， false | null 表示这个beanName对应的实例尚未增强。
+	 */
 	private final Map<Object, Boolean> advisedBeans = new ConcurrentHashMap<>(256);
 
 
@@ -296,7 +300,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
 			//防止重复代理某个bean实例。
 			if (this.earlyProxyReferences.remove(cacheKey) != bean) {
-
+				// AOP 操作入口
 				return wrapIfNecessary(bean, beanName, cacheKey);
 			}
 		}
@@ -333,28 +337,44 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 * @return a proxy wrapping the bean, or the raw bean instance as-is
 	 */
 	protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
+		//条件一般不成立，因为咱们很少使用TargetSourceCreator 去创建对象。 BeforeInstantiation阶段。
 		if (StringUtils.hasLength(beanName) && this.targetSourcedBeans.contains(beanName)) {
 			return bean;
 		}
+
+		//条件成立：说明当前beanName对应的对象不需要被增强处理，判断是在 BeforeInstantiation阶段 做的。
 		if (Boolean.FALSE.equals(this.advisedBeans.get(cacheKey))) {
 			return bean;
 		}
+
+		//条件一：isInfrastructureClass 判断当前bean类型是否是 基础框架的类型，这个类型的实例不能被增强
+		//条件二：shouldSkip 判断当前beanName是否是 .ORIGINAL 结尾，如果是这个结尾 则跳过增强逻辑。
 		if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
 			this.advisedBeans.put(cacheKey, Boolean.FALSE);
 			return bean;
 		}
 
 		// Create proxy if we have advice.
+		// 查找适合当前bean实例Class的通知
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
+
+		// 条件成立：说明上面方法 有查询到 适合当前class的通知
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
+
+			//创建代理对象，根据查询到的通知 ！
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
+
+			//保存代理对象类型。
 			this.proxyTypes.put(cacheKey, proxy.getClass());
+			//返回代理对象
 			return proxy;
 		}
 
+		// 执行到这里，说明当前bean不需要被增强。
 		this.advisedBeans.put(cacheKey, Boolean.FALSE);
+		// 直接返回原实例
 		return bean;
 	}
 
