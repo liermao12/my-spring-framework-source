@@ -201,10 +201,12 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 
 		public AspectJAnnotation(A annotation) {
 			this.annotation = annotation;
-
+			// 将Annotation类型转换为 对应 的 枚举
 			this.annotationType = determineAnnotationType(annotation);
 			try {
+				// 解析出来当前注解上定义的 切点表达式
 				this.pointcutExpression = resolveExpression(annotation);
+				// 一般情况下 argNames 咱们不配置，除非使用到 运行时匹配。
 				Object argNames = AnnotationUtils.getValue(annotation, "argNames");
 				this.argumentNames = (argNames instanceof String ? (String) argNames : "");
 			}
@@ -222,6 +224,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 		}
 
 		private String resolveExpression(A annotation) {
+			// 检查 属性 "value" "pointcut"
 			for (String attributeName : EXPRESSION_ATTRIBUTES) {
 				Object val = AnnotationUtils.getValue(annotation, attributeName);
 				if (val instanceof String) {

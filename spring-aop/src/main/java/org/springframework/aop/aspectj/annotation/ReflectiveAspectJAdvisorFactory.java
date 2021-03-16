@@ -216,10 +216,19 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 		//获取切点信息..
 		AspectJExpressionPointcut expressionPointcut = getPointcut(
 				candidateAdviceMethod, aspectInstanceFactory.getAspectMetadata().getAspectClass());
+
+		//条件成立：说明当前方法上 定义的注解 无法创建出来对应的 Advisor...
 		if (expressionPointcut == null) {
 			return null;
 		}
 
+
+		//参数一：expressionPointcut 切点表达式
+		//参数二：candidateAdviceMethod 当前方法，内部会把当前方法 封装成为 advice
+		//参数三：AdvisorFactory 构建Advisor的工厂
+		//参数四：aspectInstanceFactory 通过它可以拿到 @Aspect 注解实例 或者 拿到元数据
+		//参数五：declarationOrderInAspect ...
+		//参数六：aspectName ... 添加了@Aspect 当前class BeanName
 		return new InstantiationModelAwarePointcutAdvisorImpl(expressionPointcut, candidateAdviceMethod,
 				this, aspectInstanceFactory, declarationOrderInAspect, aspectName);
 	}
@@ -237,16 +246,21 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 		AspectJAnnotation<?> aspectJAnnotation =
 				AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(candidateAdviceMethod);
 
+		// 条件成立：说明当前方法上面 未定义 指定类型的这些注解...更不要说 Pointcut 信息了...
 		if (aspectJAnnotation == null) {
 			return null;
 		}
 
+
 		AspectJExpressionPointcut ajexp =
 				new AspectJExpressionPointcut(candidateAspectClass, new String[0], new Class<?>[0]);
+		//使用aspectJAnnotation 解析出来的 切点表达式
 		ajexp.setExpression(aspectJAnnotation.getPointcutExpression());
+
 		if (this.beanFactory != null) {
 			ajexp.setBeanFactory(this.beanFactory);
 		}
+
 		return ajexp;
 	}
 
@@ -255,18 +269,24 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 	@Nullable
 	public Advice getAdvice(Method candidateAdviceMethod, AspectJExpressionPointcut expressionPointcut,
 			MetadataAwareAspectInstanceFactory aspectInstanceFactory, int declarationOrder, String aspectName) {
-
+		//获取当前@Before... 方法的 添加了 @Aspect 注解的方法
 		Class<?> candidateAspectClass = aspectInstanceFactory.getAspectMetadata().getAspectClass();
+
 		validate(candidateAspectClass);
 
+		// 提取出来当前方法上定义的 @Aspcet 注解信息
 		AspectJAnnotation<?> aspectJAnnotation =
 				AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(candidateAdviceMethod);
+
+
 		if (aspectJAnnotation == null) {
 			return null;
 		}
 
 		// If we get here, we know we have an AspectJ method.
 		// Check that it's an AspectJ-annotated class
+
+		//再次判断当前class 是否是添加了 @Aspect 注解的class
 		if (!isAspect(candidateAspectClass)) {
 			throw new AopConfigException("Advice must be declared inside an aspect type: " +
 					"Offending method '" + candidateAdviceMethod + "' in class [" +
@@ -277,9 +297,12 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 			logger.debug("Found AspectJ method: " + candidateAdviceMethod);
 		}
 
+		// 最终springAdvice 会保存一个指定类型的 advice
 		AbstractAspectJAdvice springAdvice;
 
 		switch (aspectJAnnotation.getAnnotationType()) {
+
+			// 切点信息，无法生成 advice
 			case AtPointcut:
 				if (logger.isDebugEnabled()) {
 					logger.debug("Processing pointcut '" + candidateAdviceMethod.getName() + "'");
@@ -321,10 +344,14 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 		// Now to configure the advice...
 		springAdvice.setAspectName(aspectName);
 		springAdvice.setDeclarationOrder(declarationOrder);
+
+		//从当前添加 AspectJ 注解的方法上 提取参数名称。
 		String[] argNames = this.parameterNameDiscoverer.getParameterNames(candidateAdviceMethod);
 		if (argNames != null) {
 			springAdvice.setArgumentNamesFromStringArray(argNames);
 		}
+
+		// 营养价值有限，逻辑特复杂...
 		springAdvice.calculateArgumentBindings();
 
 		return springAdvice;
