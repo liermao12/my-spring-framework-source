@@ -223,11 +223,15 @@ public abstract class AopUtils {
 	 */
 	public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasIntroductions) {
 		Assert.notNull(pc, "Pointcut must not be null");
+		// 条件成立：clazz 不满足切点定义。因为后面是 判断 method 是否匹配的 逻辑... clazz都不匹配，后面逻辑更不用看了..
 		if (!pc.getClassFilter().matches(targetClass)) {
 			return false;
 		}
 
+		// 获取 方法匹配器
 		MethodMatcher methodMatcher = pc.getMethodMatcher();
+
+		// 因为 TrueMethodMatcher 方法匹配器 匹配所有方法，所以 直接返回true
 		if (methodMatcher == MethodMatcher.TRUE) {
 			// No need to iterate the methods if we're matching any method anyway...
 			return true;
@@ -238,13 +242,21 @@ public abstract class AopUtils {
 			introductionAwareMethodMatcher = (IntroductionAwareMethodMatcher) methodMatcher;
 		}
 
+
+		// 保存 当前目标对象clazz + 包括自身实现的接口 + 目标对象 父类 父父类... 的接口
 		Set<Class<?>> classes = new LinkedHashSet<>();
+
+		// 这个if 就是确保 classes 内存储的数据 包括 目标对象的 clazz,而不是 代理类clazz。
 		if (!Proxy.isProxyClass(targetClass)) {
 			classes.add(ClassUtils.getUserClass(targetClass));
 		}
+
+		// 包括自身实现的接口 + 目标对象 父类 父父类... 的接口
 		classes.addAll(ClassUtils.getAllInterfacesForClassAsSet(targetClass));
 
+		// 整个for循环会 检查 当前目标clazz 上级+自身方法 接口 的所有方法 看看是否会被方法匹配器 匹配，如果有一个方法匹配成功，就说明目标clazz 需要被AOP代理增强！
 		for (Class<?> clazz : classes) {
+			// 获取当前clazz内定义的method
 			Method[] methods = ReflectionUtils.getAllDeclaredMethods(clazz);
 			for (Method method : methods) {
 				if (introductionAwareMethodMatcher != null ?
@@ -255,6 +267,7 @@ public abstract class AopUtils {
 			}
 		}
 
+		//执行到这，说明当前clazz内 没有方法被匹配成功，就不需要创建代理clazz了。
 		return false;
 	}
 
@@ -284,8 +297,11 @@ public abstract class AopUtils {
 		if (advisor instanceof IntroductionAdvisor) {
 			return ((IntroductionAdvisor) advisor).getClassFilter().matches(targetClass);
 		}
+
+		//绝大部分情况 是这个分支，因为咱们创建 advisor 是 InstantiationModelAwarePointcutAdvisorImpl 类型。
 		else if (advisor instanceof PointcutAdvisor) {
 			PointcutAdvisor pca = (PointcutAdvisor) advisor;
+			// 判断当前pointcut 是否匹配当前clazz
 			return canApply(pca.getPointcut(), targetClass, hasIntroductions);
 		}
 		else {
@@ -303,25 +319,38 @@ public abstract class AopUtils {
 	 * (may be the incoming List as-is)
 	 */
 	public static List<Advisor> findAdvisorsThatCanApply(List<Advisor> candidateAdvisors, Class<?> clazz) {
+		// 条件成立：说明当前Spring没有定义Advisor
 		if (candidateAdvisors.isEmpty()) {
 			return candidateAdvisors;
 		}
+
+		//匹配当前clazz的advisor信息..
 		List<Advisor> eligibleAdvisors = new ArrayList<>();
+
+		//不考虑 引介增强...
 		for (Advisor candidate : candidateAdvisors) {
 			if (candidate instanceof IntroductionAdvisor && canApply(candidate, clazz)) {
 				eligibleAdvisors.add(candidate);
 			}
 		}
+
+		//假设:false
 		boolean hasIntroductions = !eligibleAdvisors.isEmpty();
+
 		for (Advisor candidate : candidateAdvisors) {
 			if (candidate instanceof IntroductionAdvisor) {
 				// already processed
 				continue;
 			}
+
+			//判断当前advisor 是否匹配当前clazz
 			if (canApply(candidate, clazz, hasIntroductions)) {
 				eligibleAdvisors.add(candidate);
 			}
+
 		}
+
+		// 返回的都是匹配当前clazz的Advisor
 		return eligibleAdvisors;
 	}
 

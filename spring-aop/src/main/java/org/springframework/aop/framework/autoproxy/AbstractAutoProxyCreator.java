@@ -363,6 +363,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
 
 			//创建代理对象，根据查询到的通知 ！
+			// 参数一：目标对象
+			// 参数二：beanName
+			// 参数三：匹配当前 目标对象 clazz 的Advisor数据。
+			// 参数四：目标对象
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
 
@@ -467,27 +471,48 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			AutoProxyUtils.exposeTargetClass((ConfigurableListableBeanFactory) this.beanFactory, beanName, beanClass);
 		}
 
+		// 创建代理对象 的 工厂，它必须持有 创建 代理clazz 的生产资料。
+		// 1. 目标对象
+		// 2. advisor信息
 		ProxyFactory proxyFactory = new ProxyFactory();
+
+		// 复制一些信息 到 proxyFactory
 		proxyFactory.copyFrom(this);
 
+		// 条件成立：说明咱们没有使用 xml 配置修改过 aop proxyTargetClass 为 true.
 		if (!proxyFactory.isProxyTargetClass()) {
+
+			// 是否自动设置 proxyTargetClass = true ?
+			// 如果bd定义内 有 preserveTargetClass = true ，那么这个bd对应的clazz 创建代理时 必须使用 cglib。
 			if (shouldProxyTargetClass(beanClass, beanName)) {
 				proxyFactory.setProxyTargetClass(true);
 			}
 			else {
+				// 根据目标类 判定是否可以使用 JDK 动态代理..
 				evaluateProxyInterfaces(beanClass, proxyFactory);
 			}
 		}
 
+		// 参数一：beanName
+		// 参数二：specificInterceptors 匹配当前目标对象clazz 的 advisors
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
+
+		// 提供给ProxyFactory advisors信息。
 		proxyFactory.addAdvisors(advisors);
+
+		// 提供给ProxyFactory 目标对象。
 		proxyFactory.setTargetSource(targetSource);
+
+		// 留给用户的扩展点
 		customizeProxyFactory(proxyFactory);
 
 		proxyFactory.setFrozen(this.freezeProxy);
+
 		if (advisorsPreFiltered()) {
+			// 设置为true ，表示传递给 proxyFactory 的这些 Advisor 信息 做过基础， classFilter匹配。
 			proxyFactory.setPreFiltered(true);
 		}
+
 
 		return proxyFactory.getProxy(getProxyClassLoader());
 	}
@@ -530,9 +555,13 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 */
 	protected Advisor[] buildAdvisors(@Nullable String beanName, @Nullable Object[] specificInterceptors) {
 		// Handle prototypes correctly...
+
+		// 公共 方法拦截器， Spring提供给使用者的扩展点，默认是没有的。
 		Advisor[] commonInterceptors = resolveInterceptorNames();
 
+		// 全部的 方法拦截器
 		List<Object> allInterceptors = new ArrayList<>();
+
 		if (specificInterceptors != null) {
 			allInterceptors.addAll(Arrays.asList(specificInterceptors));
 			if (commonInterceptors.length > 0) {
@@ -552,6 +581,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		}
 
 		Advisor[] advisors = new Advisor[allInterceptors.size()];
+
 		for (int i = 0; i < allInterceptors.size(); i++) {
 			advisors[i] = this.advisorAdapterRegistry.wrap(allInterceptors.get(i));
 		}

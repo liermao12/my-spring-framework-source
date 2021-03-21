@@ -153,9 +153,13 @@ public class ProxyConfig implements Serializable {
 	 */
 	public void copyFrom(ProxyConfig other) {
 		Assert.notNull(other, "Other ProxyConfig object must not be null");
+		// true 使用 cglib 生成代理类 ，默认是 false
 		this.proxyTargetClass = other.proxyTargetClass;
 		this.optimize = other.optimize;
+
+		// true 表示创建出来的代理对象，执行方法的时候 会将 “代理对象” 显露到 上下文内。
 		this.exposeProxy = other.exposeProxy;
+
 		this.frozen = other.frozen;
 		this.opaque = other.opaque;
 	}

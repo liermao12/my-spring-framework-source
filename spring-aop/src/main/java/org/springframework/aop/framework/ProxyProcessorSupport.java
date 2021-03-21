@@ -102,22 +102,32 @@ public class ProxyProcessorSupport extends ProxyConfig implements Ordered, BeanC
 	 * @param proxyFactory the ProxyFactory for the bean
 	 */
 	protected void evaluateProxyInterfaces(Class<?> beanClass, ProxyFactory proxyFactory) {
+		// 获取当前目标对象clazz 的全部接口 （自己的 + 父类 ....）
 		Class<?>[] targetInterfaces = ClassUtils.getAllInterfacesForClass(beanClass, getProxyClassLoader());
+
+		// 是否有一个合理的代理接口
 		boolean hasReasonableProxyInterface = false;
+
 		for (Class<?> ifc : targetInterfaces) {
+			//isConfigurationCallbackInterface 判断当前接口是否是 Spring 生命周期内会 回调的接口
+			//isInternalLanguageInterface 内部语言包 内的clazz
+			//条件三：判断到条件三，并且条件三成立，说明咱们这堆接口中，找到了一个可以使用的 被代理接口。
 			if (!isConfigurationCallbackInterface(ifc) && !isInternalLanguageInterface(ifc) &&
 					ifc.getMethods().length > 0) {
 				hasReasonableProxyInterface = true;
 				break;
 			}
 		}
+
 		if (hasReasonableProxyInterface) {
 			// Must allow for introductions; can't just set interfaces to the target's interfaces only.
+			// 提供这些 被代理接口 给ProxyFactory.
 			for (Class<?> ifc : targetInterfaces) {
 				proxyFactory.addInterface(ifc);
 			}
 		}
 		else {
+			// 强制使用Cglib创建代理类对象。
 			proxyFactory.setProxyTargetClass(true);
 		}
 	}
